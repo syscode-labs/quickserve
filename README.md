@@ -11,7 +11,7 @@ Only serve directories you intend to share.
 ## Install With Homebrew
 
 ```bash
-brew install syscode-labs/homebrew-public/quickserve
+brew install syscode-labs/public/quickserve
 ```
 
 ## Install From GitHub Releases
