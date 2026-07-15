@@ -6,12 +6,12 @@
 
 This token is for setup automation only. It is the control-plane credential that can create or update Cloudflare resources.
 
-Use it for commands such as a future:
+Use it to fetch the runtime connector token from the command line:
 
 ```bash
-quickserve tunnel setup cloudflare \
-  -hostname quickserve.example.com \
-  -token-env CLOUDFLARE_TOKEN_QUICKSERVE \
+quickserve cloudflare token \
+  -account-id '<account-id>' \
+  -tunnel-id '<tunnel-id>' \
   -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
 
@@ -116,7 +116,34 @@ For automation, use the Cloudflare Tunnel API after the tunnel exists:
 GET /accounts/{account_id}/cfd_tunnel/{tunnel_id}/token
 ```
 
-That API call requires the setup API token described above. Store the returned string as `CLOUDFLARE_TOKEN_QUICKSERVE`; do not put it directly in `.quickserverc`.
+That API call requires the setup API token described above. `quickserve cloudflare token` wraps that API call and prints the returned string. Store it as `CLOUDFLARE_TOKEN_QUICKSERVE`; do not put it directly in `.quickserverc`.
+
+Fish example:
+
+```fish
+set -Ux CLOUDFLARE_TOKEN_QUICKSERVE (quickserve cloudflare token \
+  -account-id '<account-id>' \
+  -tunnel-id '<tunnel-id>' \
+  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP)
+```
+
+## Existing `cloudflared` system service
+
+If `cloudflared` is already installed as a system service for the tunnel, quickserve does not need the runtime connector token during normal serving. Configure the tunnel's public hostname in Cloudflare to point at the local quickserve origin, for example:
+
+```text
+http://localhost:8000
+```
+
+Then run quickserve without `-tunnel`:
+
+```bash
+quickserve -port 8000
+```
+
+In this mode, the system service owns the Cloudflare connection. quickserve only runs the local HTTP server.
+
+Use `-tunnel cloudflare -tunnel-token-env ...` only when you want quickserve to start and stop its own `cloudflared` process for the duration of the quickserve run.
 
 ## Setup Pattern
 

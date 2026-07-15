@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.7
+
+- Add `quickserve cloudflare token` to fetch a Cloudflare Tunnel connector token with a setup API token.
+- Document when to use quickserve-managed Cloudflare tunnels versus an existing `cloudflared` system service.
+
 ## v0.1.6
 
 - Add `-tunnel-token-env` for running existing Cloudflare tunnels from a token without exposing the token in process arguments.

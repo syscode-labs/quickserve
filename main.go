@@ -4,18 +4,33 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/syscod3/quickserve/internal/app"
+	"github.com/syscod3/quickserve/internal/cloudflare"
 	"github.com/syscod3/quickserve/internal/netinfo"
 	"github.com/syscod3/quickserve/internal/tunnel"
 	"github.com/syscod3/quickserve/internal/upnp"
 )
 
+var cloudflareAPIBaseURL string
+
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if len(os.Args) > 1 && os.Args[1] == "cloudflare" {
+		if err := runCloudflare(ctx, os.Args[2:], os.Stdout, os.Getenv); err != nil {
+			fmt.Fprintf(os.Stderr, "quickserve: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	configPath := configPathFromArgs(os.Args[1:])
 	cfg := app.Config{Dir: ".", Port: 8000, UPnPLease: time.Hour}
 	var err error
@@ -43,9 +58,6 @@ func main() {
 		return
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	runner := app.NewRunnerWithTunnel(cfg, netinfo.DefaultProvider(), upnp.NewDefaultManager(), tunnel.CloudflareQuick{})
 	started, errc := runner.Start(ctx, os.Stdout)
 	select {
@@ -62,6 +74,43 @@ func main() {
 		fmt.Fprintf(os.Stderr, "quickserve: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func runCloudflare(ctx context.Context, args []string, out io.Writer, getenv func(string) string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("cloudflare command is required; supported: token")
+	}
+	switch args[0] {
+	case "token":
+		return runCloudflareToken(ctx, args[1:], out, getenv)
+	default:
+		return fmt.Errorf("unsupported cloudflare command %q; supported: token", args[0])
+	}
+}
+
+func runCloudflareToken(ctx context.Context, args []string, out io.Writer, getenv func(string) string) error {
+	fs := flag.NewFlagSet("quickserve cloudflare token", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	var accountID string
+	var tunnelID string
+	var apiTokenEnv string
+	fs.StringVar(&accountID, "account-id", "", "Cloudflare account ID")
+	fs.StringVar(&tunnelID, "tunnel-id", "", "Cloudflare tunnel ID")
+	fs.StringVar(&apiTokenEnv, "api-token-env", "CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP", "environment variable containing the Cloudflare setup API token")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	apiToken := getenv(apiTokenEnv)
+	if apiToken == "" {
+		return fmt.Errorf("%s is not set", apiTokenEnv)
+	}
+	client := cloudflare.Client{BaseURL: cloudflareAPIBaseURL}
+	token, err := client.TunnelToken(ctx, accountID, tunnelID, apiToken)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(out, token)
+	return err
 }
 
 func configPathFromArgs(args []string) string {

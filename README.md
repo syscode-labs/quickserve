@@ -150,6 +150,30 @@ Use an existing Cloudflare Tunnel token from an environment variable:
 quickserve -dir ~/Public -tunnel cloudflare -tunnel-token-env CLOUDFLARE_TOKEN_QUICKSERVE -tunnel-hostname share.example.com
 ```
 
+Fetch a tunnel connector token with a setup API token:
+
+```bash
+quickserve cloudflare token \
+  -account-id '<account-id>' \
+  -tunnel-id '<tunnel-id>' \
+  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
+```
+
+Fish example:
+
+```fish
+set -Ux CLOUDFLARE_TOKEN_QUICKSERVE (quickserve cloudflare token \
+  -account-id '<account-id>' \
+  -tunnel-id '<tunnel-id>' \
+  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP)
+```
+
+If `cloudflared` is already installed as a system service and the Cloudflare public hostname routes to the local quickserve origin, do not use `-tunnel`. Run quickserve on the configured origin port:
+
+```bash
+quickserve -dir ~/Public -port 8000
+```
+
 Custom hostnames require either `cloudflared tunnel login` credentials with permission to create and route the named tunnel, or an existing Cloudflare Tunnel token whose public hostname is already configured in Cloudflare Zero Trust. Cloudflare Quick Tunnels are useful for ad hoc sharing. For stable hostnames or access policies, create a named Cloudflare Tunnel with Cloudflare Zero Trust and point it at the local `quickserve` URL.
 
 ## Flags
