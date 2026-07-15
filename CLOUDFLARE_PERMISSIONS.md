@@ -10,24 +10,24 @@ Use it for commands such as a future:
 
 ```bash
 quickserve tunnel setup cloudflare \
-  -hostname quickserve.syscode.uk \
+  -hostname quickserve.example.com \
   -token-env CLOUDFLARE_TOKEN_QUICKSERVE \
-  -api-token-env CLOUDFLARE_API_TOKEN_SYSCODE
+  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
 
 Recommended local env var name:
 
 ```text
-CLOUDFLARE_API_TOKEN_SYSCODE
+CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
 
 Required scope, least-privilege version:
 
 - Account scope: the Cloudflare account that owns the Zero Trust/Tunnel configuration.
-- Zone scope: only `syscode.uk`.
+- Zone scope: only the DNS zone that contains the hostname you want to publish, for example `example.com`.
 - Account permission: Cloudflare Tunnel edit, or equivalent Zero Trust tunnel edit permission.
-- Zone permission: DNS edit for `syscode.uk`.
-- Zone permission: Zone read for `syscode.uk`, if setup needs to discover the zone ID from the hostname.
+- Zone permission: DNS edit for that zone.
+- Zone permission: Zone read for that zone, if setup needs to discover the zone ID from the hostname.
 
 What it can do:
 
@@ -45,7 +45,7 @@ Why it is sensitive:
 Storage guidance:
 
 ```fish
-set -Ux CLOUDFLARE_API_TOKEN_SYSCODE '<api-token>'
+set -Ux CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP '<api-token>'
 ```
 
 Do not put this value in `.quickserverc`.
@@ -64,7 +64,7 @@ CLOUDFLARE_TOKEN_QUICKSERVE
 
 ```text
 tunnel=cloudflare
-tunnel-hostname=quickserve.syscode.uk
+tunnel-hostname=quickserve.example.com
 tunnel-token-env=CLOUDFLARE_TOKEN_QUICKSERVE
 ```
 
@@ -96,7 +96,7 @@ set -Ux CLOUDFLARE_TOKEN_QUICKSERVE '<connector-token>'
 
 1. Use the setup API token once to create/update:
    - Tunnel name: `quickserve`
-   - Public hostname: `quickserve.syscode.uk`
+   - Public hostname: `quickserve.example.com`
    - Origin service: `http://localhost:8000`
 2. Save the generated connector token as `CLOUDFLARE_TOKEN_QUICKSERVE`.
 3. Keep `.quickserverc` in the project directory:
@@ -105,7 +105,7 @@ set -Ux CLOUDFLARE_TOKEN_QUICKSERVE '<connector-token>'
 dir=.
 port=8000
 tunnel=cloudflare
-tunnel-hostname=quickserve.syscode.uk
+tunnel-hostname=quickserve.example.com
 tunnel-token-env=CLOUDFLARE_TOKEN_QUICKSERVE
 ```
 
@@ -120,6 +120,7 @@ quickserve
 - `cloudflared` reads the connector token through `TUNNEL_TOKEN`; quickserve maps `tunnel-token-env` to that environment variable without putting the token in process arguments.
 - If `cloudflared` says `Provided Tunnel token is not valid`, the runtime connector token is wrong, expired, revoked, or not a connector token.
 - A Cloudflare API token and a Cloudflare Tunnel connector token are not interchangeable.
+- For a real deployment, replace `quickserve.example.com` with your own hostname and scope the setup API token to that hostname's DNS zone.
 
 References:
 
