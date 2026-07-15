@@ -81,11 +81,70 @@ func runCloudflare(ctx context.Context, args []string, out io.Writer, getenv fun
 		return fmt.Errorf("cloudflare command is required; supported: token")
 	}
 	switch args[0] {
+	case "discover":
+		return runCloudflareDiscover(ctx, args[1:], out, getenv)
 	case "token":
 		return runCloudflareToken(ctx, args[1:], out, getenv)
 	default:
-		return fmt.Errorf("unsupported cloudflare command %q; supported: token", args[0])
+		return fmt.Errorf("unsupported cloudflare command %q; supported: discover, token", args[0])
 	}
+}
+
+func runCloudflareDiscover(ctx context.Context, args []string, out io.Writer, getenv func(string) string) error {
+	fs := flag.NewFlagSet("quickserve cloudflare discover", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	var hostname string
+	var zoneName string
+	var tunnelName string
+	var apiTokenEnv string
+	fs.StringVar(&hostname, "hostname", "", "Cloudflare hostname used to infer the DNS zone")
+	fs.StringVar(&zoneName, "zone", "", "Cloudflare DNS zone name")
+	fs.StringVar(&tunnelName, "tunnel-name", "", "Cloudflare tunnel name filter")
+	fs.StringVar(&apiTokenEnv, "api-token-env", "CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP", "environment variable containing the Cloudflare setup API token")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if zoneName == "" && hostname == "" {
+		return fmt.Errorf("-hostname or -zone is required")
+	}
+	apiToken := getenv(apiTokenEnv)
+	if apiToken == "" {
+		return fmt.Errorf("%s is not set", apiTokenEnv)
+	}
+	client := cloudflare.Client{BaseURL: cloudflareAPIBaseURL}
+	var zone cloudflare.Zone
+	var err error
+	if zoneName != "" {
+		zone, err = client.ZoneByName(ctx, zoneName, apiToken)
+	} else {
+		zone, err = client.FindZoneForHostname(ctx, hostname, apiToken)
+	}
+	if err != nil {
+		return err
+	}
+	tunnels, err := client.Tunnels(ctx, zone.Account.ID, tunnelName, apiToken)
+	if err != nil {
+		return err
+	}
+	if len(tunnels) == 0 {
+		return fmt.Errorf("no tunnels found for account %s", zone.Account.ID)
+	}
+	if len(tunnels) > 1 && tunnelName != "" {
+		return fmt.Errorf("multiple tunnels found for name %q", tunnelName)
+	}
+	if len(tunnels) > 1 {
+		fmt.Fprintf(out, "account-id=%s\n", zone.Account.ID)
+		for _, tunnel := range tunnels {
+			fmt.Fprintf(out, "tunnel-id=%s tunnel-name=%s tunnel-status=%s\n", tunnel.ID, tunnel.Name, tunnel.Status)
+		}
+		return nil
+	}
+	tunnel := tunnels[0]
+	fmt.Fprintf(out, "account-id=%s\n", zone.Account.ID)
+	fmt.Fprintf(out, "tunnel-id=%s\n", tunnel.ID)
+	fmt.Fprintf(out, "tunnel-name=%s\n", tunnel.Name)
+	fmt.Fprintf(out, "tunnel-status=%s\n", tunnel.Status)
+	return nil
 }
 
 func runCloudflareToken(ctx context.Context, args []string, out io.Writer, getenv func(string) string) error {

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.8
+
+- Add `quickserve cloudflare discover` to print the Cloudflare account and tunnel IDs needed by the token command.
+
 ## v0.1.7
 
 - Add `quickserve cloudflare token` to fetch a Cloudflare Tunnel connector token with a setup API token.

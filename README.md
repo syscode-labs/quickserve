@@ -159,6 +159,24 @@ quickserve cloudflare token \
   -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
 
+Discover the account and tunnel IDs first:
+
+```bash
+quickserve cloudflare discover \
+  -hostname quickserve.example.com \
+  -tunnel-name quickserve \
+  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
+```
+
+Output:
+
+```text
+account-id=<account-id>
+tunnel-id=<tunnel-id>
+tunnel-name=quickserve
+tunnel-status=healthy
+```
+
 Fish example:
 
 ```fish
