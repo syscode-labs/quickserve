@@ -23,7 +23,7 @@ builds:
       - goos: windows
         goarch: arm64
     ldflags:
-      - -s -w -X github.com/syscod3/quickserve/internal/app.Version={{ .Version }} -X github.com/syscod3/quickserve/internal/app.Commit={{ .Commit }} -X github.com/syscod3/quickserve/internal/app.Date={{ .Date }}
+      - -s -w -X github.com/syscod3/quickserve/internal/app.Version={{ .Tag }} -X github.com/syscod3/quickserve/internal/app.Commit={{ .Commit }} -X github.com/syscod3/quickserve/internal/app.Date={{ .Date }}
 
 archives:
   - id: default
@@ -31,7 +31,7 @@ archives:
       - quickserve
     formats:
       - tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats:
