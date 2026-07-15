@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.10
+
+- Move the canonical repository to `syscode-labs/quickserve`.
+- Update Go module path and release documentation for the new organization.
+
 ## v0.1.9
 
 - Add `quickserve cloudflare route` to configure a Cloudflare Tunnel public hostname and proxied DNS record from the setup API token.

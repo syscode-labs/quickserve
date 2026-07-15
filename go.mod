@@ -1,4 +1,4 @@
-module github.com/syscod3/quickserve
+module github.com/syscode-labs/quickserve
 
 go 1.26
 

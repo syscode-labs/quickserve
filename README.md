@@ -8,16 +8,22 @@
 
 Only serve directories you intend to share.
 
+## Install With Homebrew
+
+```bash
+brew install syscode-labs/homebrew-public/quickserve
+```
+
 ## Install From GitHub Releases
 
 Download the archive for your platform from:
 
-https://github.com/syscod3/quickserve/releases/latest
+https://github.com/syscode-labs/quickserve/releases/latest
 
 macOS Apple Silicon:
 
 ```bash
-curl -LO https://github.com/syscod3/quickserve/releases/download/v0.1.3/quickserve_v0.1.3_darwin_arm64.tar.gz
+curl -LO https://github.com/syscode-labs/quickserve/releases/download/v0.1.3/quickserve_v0.1.3_darwin_arm64.tar.gz
 tar -xzf quickserve_v0.1.3_darwin_arm64.tar.gz
 install -m 0755 quickserve /opt/homebrew/bin/quickserve
 ```
@@ -25,7 +31,7 @@ install -m 0755 quickserve /opt/homebrew/bin/quickserve
 macOS Intel:
 
 ```bash
-curl -LO https://github.com/syscod3/quickserve/releases/download/v0.1.3/quickserve_v0.1.3_darwin_amd64.tar.gz
+curl -LO https://github.com/syscode-labs/quickserve/releases/download/v0.1.3/quickserve_v0.1.3_darwin_amd64.tar.gz
 tar -xzf quickserve_v0.1.3_darwin_amd64.tar.gz
 install -m 0755 quickserve /usr/local/bin/quickserve
 ```
@@ -33,7 +39,7 @@ install -m 0755 quickserve /usr/local/bin/quickserve
 Linux amd64:
 
 ```bash
-curl -LO https://github.com/syscod3/quickserve/releases/download/v0.1.3/quickserve_v0.1.3_linux_amd64.tar.gz
+curl -LO https://github.com/syscode-labs/quickserve/releases/download/v0.1.3/quickserve_v0.1.3_linux_amd64.tar.gz
 tar -xzf quickserve_v0.1.3_linux_amd64.tar.gz
 sudo install -m 0755 quickserve /usr/local/bin/quickserve
 ```
@@ -41,7 +47,7 @@ sudo install -m 0755 quickserve /usr/local/bin/quickserve
 Linux arm64:
 
 ```bash
-curl -LO https://github.com/syscod3/quickserve/releases/download/v0.1.3/quickserve_v0.1.3_linux_arm64.tar.gz
+curl -LO https://github.com/syscode-labs/quickserve/releases/download/v0.1.3/quickserve_v0.1.3_linux_arm64.tar.gz
 tar -xzf quickserve_v0.1.3_linux_arm64.tar.gz
 sudo install -m 0755 quickserve /usr/local/bin/quickserve
 ```
@@ -53,7 +59,7 @@ Download `quickserve_v0.1.3_windows_amd64.zip`, extract `quickserve.exe`, and pl
 ## Install With Go
 
 ```bash
-go install github.com/syscod3/quickserve@latest
+go install github.com/syscode-labs/quickserve@latest
 ```
 
 ## Basic Use
@@ -285,7 +291,7 @@ gh attestation verify --owner syscod3 quickserve_v0.1.3_darwin_arm64.tar.gz
 ## Build From Source
 
 ```bash
-git clone https://github.com/syscod3/quickserve.git
+git clone https://github.com/syscode-labs/quickserve.git
 cd quickserve
 go build ./...
 go build -o quickserve .

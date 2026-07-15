@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syscod3/quickserve/internal/app"
-	"github.com/syscod3/quickserve/internal/cloudflare"
-	"github.com/syscod3/quickserve/internal/netinfo"
-	"github.com/syscod3/quickserve/internal/tunnel"
-	"github.com/syscod3/quickserve/internal/upnp"
+	"github.com/syscode-labs/quickserve/internal/app"
+	"github.com/syscode-labs/quickserve/internal/cloudflare"
+	"github.com/syscode-labs/quickserve/internal/netinfo"
+	"github.com/syscode-labs/quickserve/internal/tunnel"
+	"github.com/syscode-labs/quickserve/internal/upnp"
 )
 
 var cloudflareAPIBaseURL string

@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/syscod3/quickserve/internal/netinfo"
-	"github.com/syscod3/quickserve/internal/tunnel"
-	"github.com/syscod3/quickserve/internal/upnp"
+	"github.com/syscode-labs/quickserve/internal/netinfo"
+	"github.com/syscode-labs/quickserve/internal/tunnel"
+	"github.com/syscode-labs/quickserve/internal/upnp"
 )
 
 type NetInfo interface {

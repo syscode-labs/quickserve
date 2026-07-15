@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syscod3/quickserve/internal/netinfo"
-	"github.com/syscod3/quickserve/internal/tunnel"
+	"github.com/syscode-labs/quickserve/internal/netinfo"
+	"github.com/syscode-labs/quickserve/internal/tunnel"
 )
 
 func TestServerServesSelectedRootAndReportsPortZero(t *testing.T) {

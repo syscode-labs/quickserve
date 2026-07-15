@@ -23,7 +23,7 @@ builds:
       - goos: windows
         goarch: arm64
     ldflags:
-      - -s -w -X github.com/syscod3/quickserve/internal/app.Version={{ .Tag }} -X github.com/syscod3/quickserve/internal/app.Commit={{ .Commit }} -X github.com/syscod3/quickserve/internal/app.Date={{ .Date }}
+      - -s -w -X github.com/syscode-labs/quickserve/internal/app.Version={{ .Tag }} -X github.com/syscode-labs/quickserve/internal/app.Commit={{ .Commit }} -X github.com/syscode-labs/quickserve/internal/app.Date={{ .Date }}
 
 archives:
   - id: default

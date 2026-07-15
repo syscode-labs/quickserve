@@ -4,7 +4,7 @@
 
 Please report vulnerabilities privately through GitHub Security Advisories for this repository:
 
-https://github.com/syscod3/quickserve/security/advisories/new
+https://github.com/syscode-labs/quickserve/security/advisories/new
 
 Do not open a public issue for security-sensitive reports.
 
