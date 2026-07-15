@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.6
+
+- Add `-tunnel-token-env` for running existing Cloudflare tunnels from a token without exposing the token in process arguments.
+- Add `.quickserverc` support for per-directory defaults.
+
 ## v0.1.5
 
 - Add `-tunnel-name` and `-tunnel-hostname` for routing Cloudflare Tunnel traffic through a custom Cloudflare-managed hostname.

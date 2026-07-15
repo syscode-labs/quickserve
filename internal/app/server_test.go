@@ -127,6 +127,7 @@ func TestServerPassesCloudflareTunnelHostname(t *testing.T) {
 		Tunnel:         "cloudflare",
 		TunnelHostname: "share.example.com",
 		TunnelName:     "quickserve-test",
+		TunnelTokenEnv: "CLOUDFLARE_TOKEN_SYSCODE",
 	}, StaticNetInfo{
 		LAN: "192.0.2.10",
 	}, nil, tunneler)
@@ -146,6 +147,9 @@ func TestServerPassesCloudflareTunnelHostname(t *testing.T) {
 	}
 	if tunneler.opts.Name != "quickserve-test" {
 		t.Fatalf("tunnel name = %q, want quickserve-test", tunneler.opts.Name)
+	}
+	if tunneler.opts.TokenEnv != "CLOUDFLARE_TOKEN_SYSCODE" {
+		t.Fatalf("tunnel token env = %q, want CLOUDFLARE_TOKEN_SYSCODE", tunneler.opts.TokenEnv)
 	}
 }
 

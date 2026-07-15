@@ -82,6 +82,24 @@ Let the OS choose a free port:
 quickserve -port 0
 ```
 
+## Config File
+
+`quickserve` reads `.quickserverc` from the current directory when present. Command-line flags override config-file values. Use `-config path` to choose another file or `-config ""` to disable config loading.
+
+Example:
+
+```text
+dir=~/Public
+port=8000
+tunnel=cloudflare
+tunnel-hostname=share.syscode.uk
+tunnel-token-env=CLOUDFLARE_TOKEN_QUICKSERVE
+```
+
+Supported keys match the long flag names without the leading dash: `dir`, `port`, `upnp`, `upnp-port`, `upnp-lease`, `tunnel`, `tunnel-hostname`, `tunnel-name`, and `tunnel-token-env`.
+
+Do not put Cloudflare token values in `.quickserverc` if the file may be committed. Store the token in your shell or secret manager and reference its environment variable with `tunnel-token-env`.
+
 ## UPnP
 
 UPnP is disabled by default. Enable it only when you want to ask your router to expose the server.
@@ -126,13 +144,21 @@ Use a hostname on a Cloudflare-managed zone:
 quickserve -dir ~/Public -tunnel cloudflare -tunnel-name quickserve-share -tunnel-hostname share.example.com
 ```
 
-Custom hostnames require `cloudflared tunnel login` or equivalent Cloudflare Tunnel credentials with permission to create and route the named tunnel. Cloudflare Quick Tunnels are useful for ad hoc sharing. For stable hostnames or access policies, create a named Cloudflare Tunnel with Cloudflare Zero Trust and point it at the local `quickserve` URL.
+Use an existing Cloudflare Tunnel token from an environment variable:
+
+```bash
+quickserve -dir ~/Public -tunnel cloudflare -tunnel-token-env CLOUDFLARE_TOKEN_QUICKSERVE -tunnel-hostname share.example.com
+```
+
+Custom hostnames require either `cloudflared tunnel login` credentials with permission to create and route the named tunnel, or an existing Cloudflare Tunnel token whose public hostname is already configured in Cloudflare Zero Trust. Cloudflare Quick Tunnels are useful for ad hoc sharing. For stable hostnames or access policies, create a named Cloudflare Tunnel with Cloudflare Zero Trust and point it at the local `quickserve` URL.
 
 ## Flags
 
 ```text
 -dir string
       directory to serve (default ".")
+-config string
+      config file path; empty disables config loading (default ".quickserverc")
 -port int
       local TCP port; use 0 to select an available port (default 8000)
 -upnp
@@ -147,6 +173,8 @@ Custom hostnames require `cloudflared tunnel login` or equivalent Cloudflare Tun
       Cloudflare hostname to route to this tunnel
 -tunnel-name string
       Cloudflare tunnel name for custom hostname mode
+-tunnel-token-env string
+      environment variable containing a Cloudflare tunnel token
 -version
       print version information and exit
 ```

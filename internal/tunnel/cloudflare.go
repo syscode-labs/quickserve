@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"regexp"
 	"sync"
@@ -19,6 +20,7 @@ var cloudflareReadyLine = regexp.MustCompile(`Registered tunnel connection|Route
 type Options struct {
 	Hostname string
 	Name     string
+	TokenEnv string
 }
 
 type Session interface {
@@ -39,6 +41,32 @@ type CloudflareSession struct {
 	err    error
 }
 
+type tailBuffer struct {
+	mu    sync.Mutex
+	limit int
+	data  []byte
+}
+
+func newTailBuffer(limit int) *tailBuffer {
+	return &tailBuffer{limit: limit}
+}
+
+func (b *tailBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.data = append(b.data, p...)
+	if len(b.data) > b.limit {
+		b.data = b.data[len(b.data)-b.limit:]
+	}
+	return len(p), nil
+}
+
+func (b *tailBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.data)
+}
+
 func (c CloudflareQuick) Start(ctx context.Context, localURL string, opts Options) (Session, error) {
 	command := c.Command
 	if command == "" {
@@ -49,35 +77,56 @@ func (c CloudflareQuick) Start(ctx context.Context, localURL string, opts Option
 		return nil, fmt.Errorf("%s is not installed; install cloudflared and retry", command)
 	}
 
+	args, env, err := cloudflaredArgs(localURL, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	startCtx, cancel := context.WithCancel(ctx)
-	args := []string{"tunnel", "--no-autoupdate", "--url", localURL}
-	if opts.Hostname != "" {
-		args = append(args, "--hostname", opts.Hostname)
-	}
-	if opts.Name != "" {
-		args = append(args, "--name", opts.Name)
-	}
 	cmd := exec.CommandContext(startCtx, path, args...)
-	outputReader, outputWriter := io.Pipe()
-	cmd.Stdout = outputWriter
-	cmd.Stderr = outputWriter
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
+	var outputReader *io.PipeReader
+	var outputWriter *io.PipeWriter
+	var tokenOutput *tailBuffer
+	if opts.TokenEnv == "" {
+		outputReader, outputWriter = io.Pipe()
+		cmd.Stdout = outputWriter
+		cmd.Stderr = outputWriter
+	} else {
+		tokenOutput = newTailBuffer(4096)
+		cmd.Stdout = tokenOutput
+		cmd.Stderr = tokenOutput
+	}
 
 	if err := cmd.Start(); err != nil {
 		cancel()
-		_ = outputWriter.Close()
+		if outputWriter != nil {
+			_ = outputWriter.Close()
+		}
 		return nil, err
 	}
 
 	done := make(chan error, 1)
 	go func() {
 		err := cmd.Wait()
-		_ = outputWriter.Close()
+		if outputWriter != nil {
+			_ = outputWriter.Close()
+		}
 		done <- err
 	}()
 
 	timeout := c.Timeout
 	if timeout == 0 {
 		timeout = 20 * time.Second
+	}
+	if opts.TokenEnv != "" {
+		if err := waitForTokenTunnel(done, timeout, tokenOutput); err != nil {
+			cancel()
+			return nil, err
+		}
+		return &CloudflareSession{url: "https://" + opts.Hostname, cancel: cancel, done: done}, nil
 	}
 	url, err := waitForURL(outputReader, done, timeout, opts.Hostname)
 	if err != nil {
@@ -86,6 +135,46 @@ func (c CloudflareQuick) Start(ctx context.Context, localURL string, opts Option
 		return nil, err
 	}
 	return &CloudflareSession{url: url, cancel: cancel, done: done}, nil
+}
+
+func waitForTokenTunnel(done <-chan error, timeout time.Duration, output fmt.Stringer) error {
+	ready := 3 * time.Second
+	if timeout > 0 && timeout < ready {
+		ready = timeout
+	}
+	timer := time.NewTimer(ready)
+	defer timer.Stop()
+	select {
+	case err := <-done:
+		if err == nil {
+			err = errors.New("cloudflared exited before the token tunnel stayed ready")
+		}
+		if output != nil && output.String() != "" {
+			return fmt.Errorf("%w: %s", err, output.String())
+		}
+		return err
+	case <-timer.C:
+		return nil
+	}
+}
+
+func cloudflaredArgs(localURL string, opts Options) ([]string, []string, error) {
+	if opts.TokenEnv != "" {
+		token := os.Getenv(opts.TokenEnv)
+		if token == "" {
+			return nil, nil, fmt.Errorf("%s is not set", opts.TokenEnv)
+		}
+		return []string{"tunnel", "--no-autoupdate", "run", "--url", localURL}, []string{"TUNNEL_TOKEN=" + token}, nil
+	}
+
+	args := []string{"tunnel", "--no-autoupdate", "--url", localURL}
+	if opts.Hostname != "" {
+		args = append(args, "--hostname", opts.Hostname)
+	}
+	if opts.Name != "" {
+		args = append(args, "--name", opts.Name)
+	}
+	return args, nil, nil
 }
 
 func (s *CloudflareSession) URL() string {

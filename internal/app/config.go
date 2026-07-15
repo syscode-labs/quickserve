@@ -15,6 +15,7 @@ type Config struct {
 	Tunnel         string
 	TunnelHostname string
 	TunnelName     string
+	TunnelTokenEnv string
 	Version        bool
 }
 
@@ -37,11 +38,17 @@ func (c Config) Validate() error {
 	if c.TunnelHostname != "" && c.Tunnel != "cloudflare" {
 		return errors.New("tunnel hostname requires -tunnel cloudflare")
 	}
-	if c.TunnelHostname != "" && c.TunnelName == "" {
-		return errors.New("tunnel hostname requires -tunnel-name")
+	if c.TunnelHostname != "" && c.TunnelName == "" && c.TunnelTokenEnv == "" {
+		return errors.New("tunnel hostname requires -tunnel-name or -tunnel-token-env")
 	}
 	if c.TunnelName != "" && c.Tunnel != "cloudflare" {
 		return errors.New("tunnel name requires -tunnel cloudflare")
+	}
+	if c.TunnelTokenEnv != "" && c.Tunnel != "cloudflare" {
+		return errors.New("tunnel token env requires -tunnel cloudflare")
+	}
+	if c.TunnelTokenEnv != "" && c.TunnelHostname == "" {
+		return errors.New("tunnel token env requires -tunnel-hostname")
 	}
 	return nil
 }

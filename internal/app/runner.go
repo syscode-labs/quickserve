@@ -135,6 +135,7 @@ func (r *Runner) run(ctx context.Context, out io.Writer, started *Started) error
 		tunnelSession, err = r.tunneler.Start(ctx, fmt.Sprintf("http://127.0.0.1:%d", port), tunnel.Options{
 			Hostname: r.cfg.TunnelHostname,
 			Name:     r.cfg.TunnelName,
+			TokenEnv: r.cfg.TunnelTokenEnv,
 		})
 		if err != nil {
 			_ = listener.Close()

@@ -58,7 +58,7 @@ func TestValidateConfigRejectsTunnelHostnameWithoutCloudflareTunnel(t *testing.T
 func TestValidateConfigRejectsTunnelHostnameWithoutTunnelName(t *testing.T) {
 	cfg := Config{Dir: ".", Port: 8000, UPnPLease: time.Hour, Tunnel: "cloudflare", TunnelHostname: "share.example.com"}
 	if err := cfg.Validate(); err == nil {
-		t.Fatal("Validate() accepted tunnel hostname without tunnel name")
+		t.Fatal("Validate() accepted tunnel hostname without tunnel name or token env")
 	}
 }
 
@@ -66,5 +66,33 @@ func TestValidateConfigRejectsTunnelNameWithoutCloudflareTunnel(t *testing.T) {
 	cfg := Config{Dir: ".", Port: 8000, UPnPLease: time.Hour, TunnelName: "quickserve"}
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("Validate() accepted tunnel name without Cloudflare tunnel")
+	}
+}
+
+func TestValidateConfigAcceptsTunnelHostnameWithTokenEnv(t *testing.T) {
+	cfg := Config{
+		Dir:            ".",
+		Port:           8000,
+		UPnPLease:      time.Hour,
+		Tunnel:         "cloudflare",
+		TunnelHostname: "share.example.com",
+		TunnelTokenEnv: "CLOUDFLARE_TOKEN_SYSCODE",
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() rejected tunnel hostname with token env: %v", err)
+	}
+}
+
+func TestValidateConfigRejectsTunnelTokenEnvWithoutCloudflareTunnel(t *testing.T) {
+	cfg := Config{Dir: ".", Port: 8000, UPnPLease: time.Hour, TunnelTokenEnv: "CLOUDFLARE_TOKEN_SYSCODE"}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate() accepted tunnel token env without Cloudflare tunnel")
+	}
+}
+
+func TestValidateConfigRejectsTunnelTokenEnvWithoutHostname(t *testing.T) {
+	cfg := Config{Dir: ".", Port: 8000, UPnPLease: time.Hour, Tunnel: "cloudflare", TunnelTokenEnv: "CLOUDFLARE_TOKEN_SYSCODE"}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate() accepted tunnel token env without hostname")
 	}
 }
