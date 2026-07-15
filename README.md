@@ -97,14 +97,14 @@ Example:
 ```text
 dir=~/Public
 port=8000
-tunnel=cloudflare
-tunnel-hostname=share.syscode.uk
-tunnel-token-env=CLOUDFLARE_TOKEN_QUICKSERVE
+cloudflare-hostname=share.example.com
+cloudflare-token-env=CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
+cloudflare-tunnel-name=quickserve
 ```
 
-Supported keys match the long flag names without the leading dash: `dir`, `port`, `upnp`, `upnp-port`, `upnp-lease`, `tunnel`, `tunnel-hostname`, `tunnel-name`, and `tunnel-token-env`.
+Supported keys match the long flag names without the leading dash: `dir`, `port`, `upnp`, `upnp-port`, `upnp-lease`, `cloudflare-hostname`, `cloudflare-token-env`, `cloudflare-tunnel-name`, `tunnel`, `tunnel-hostname`, `tunnel-name`, and `tunnel-token-env`.
 
-Do not put Cloudflare token values in `.quickserverc` if the file may be committed. Store the token in your shell or secret manager and reference its environment variable with `tunnel-token-env`.
+Do not put Cloudflare token values in `.quickserverc` if the file may be committed. Store the token in your shell or secret manager and reference its environment variable with `cloudflare-token-env`.
 
 ## UPnP
 
@@ -136,54 +136,23 @@ Temporary mappings are renewed while `quickserve` runs. On `Ctrl-C` or `SIGTERM`
 
 ## Cloudflare Tunnel
 
-Cloudflare Tunnel works when direct inbound access is blocked by CGNAT. It requires the `cloudflared` command on your `PATH`.
+Cloudflare Tunnel works when direct inbound access is blocked by CGNAT. The simplest setup is an existing `cloudflared` service plus a Cloudflare API token that can update the tunnel and DNS route.
 
 ```bash
-quickserve -dir ~/Public -tunnel cloudflare
+quickserve -dir ~/Public \
+  -cloudflare-hostname quickserve.example.com \
+  -cloudflare-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
 
-This starts a temporary Quick Tunnel and prints an HTTPS `trycloudflare.com` URL. The tunnel is closed when `quickserve` exits.
+This command does the Cloudflare setup and serves files in one process:
 
-Use a hostname on a Cloudflare-managed zone:
+- Adds or updates the tunnel ingress rule for `quickserve.example.com -> http://localhost:8000`.
+- Creates or updates a proxied CNAME for `quickserve.example.com -> <tunnel-id>.cfargotunnel.com`.
+- Starts the local HTTP server and keeps running until `Ctrl-C`.
 
-```bash
-quickserve -dir ~/Public -tunnel cloudflare -tunnel-name quickserve-share -tunnel-hostname share.example.com
-```
+Use `-cloudflare-tunnel-name` if the tunnel is not named `quickserve`.
 
-Use an existing Cloudflare Tunnel token from an environment variable:
-
-```bash
-quickserve -dir ~/Public -tunnel cloudflare -tunnel-token-env CLOUDFLARE_TOKEN_QUICKSERVE -tunnel-hostname share.example.com
-```
-
-Fetch a tunnel connector token with a setup API token:
-
-```bash
-quickserve cloudflare token \
-  -account-id '<account-id>' \
-  -tunnel-id '<tunnel-id>' \
-  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
-```
-
-Discover the account and tunnel IDs first:
-
-```bash
-quickserve cloudflare discover \
-  -hostname quickserve.example.com \
-  -tunnel-name quickserve \
-  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
-```
-
-Output:
-
-```text
-account-id=<account-id>
-tunnel-id=<tunnel-id>
-tunnel-name=quickserve
-tunnel-status=healthy
-```
-
-Configure a public hostname route with the setup API token:
+If you only want to update Cloudflare and exit, use the setup-only subcommand:
 
 ```bash
 quickserve cloudflare route \
@@ -193,33 +162,27 @@ quickserve cloudflare route \
   -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
 
-This command does both Cloudflare setup steps:
-
-- Adds or updates the tunnel ingress rule for `quickserve.example.com -> http://localhost:8000`.
-- Creates or updates a proxied CNAME for `quickserve.example.com -> <tunnel-id>.cfargotunnel.com`.
-
-`quickserve cloudflare route` is a setup command. It prints what it configured and exits. To serve files through an existing `cloudflared` service after setup, run quickserve separately and keep it running:
+Temporary Quick Tunnel mode is still available when you do not need a stable hostname. It requires the `cloudflared` command on your `PATH`.
 
 ```bash
-quickserve -dir ~/Public -port 8000
+quickserve -dir ~/Public -tunnel cloudflare
 ```
 
-Fish example:
+This starts a temporary Quick Tunnel and prints an HTTPS `trycloudflare.com` URL. The tunnel is closed when `quickserve` exits.
 
-```fish
-set -Ux CLOUDFLARE_TOKEN_QUICKSERVE (quickserve cloudflare token \
+Advanced token commands are available if you need to inspect IDs or fetch a connector token manually:
+
+```bash
+quickserve cloudflare discover \
+  -hostname quickserve.example.com \
+  -tunnel-name quickserve \
+  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
+
+quickserve cloudflare token \
   -account-id '<account-id>' \
   -tunnel-id '<tunnel-id>' \
-  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP)
+  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
-
-If `cloudflared` is already installed as a system service and the Cloudflare public hostname routes to the local quickserve origin, do not use `-tunnel`. Run quickserve on the configured origin port and leave it running:
-
-```bash
-quickserve -dir ~/Public -port 8000
-```
-
-Custom hostnames require either `cloudflared tunnel login` credentials with permission to create and route the named tunnel, or an existing Cloudflare Tunnel token whose public hostname is already configured in Cloudflare Zero Trust. Cloudflare Quick Tunnels are useful for ad hoc sharing. For stable hostnames or access policies, create a named Cloudflare Tunnel with Cloudflare Zero Trust and point it at the local `quickserve` URL.
 
 ## Flags
 
@@ -244,6 +207,12 @@ Custom hostnames require either `cloudflared tunnel login` credentials with perm
       Cloudflare tunnel name for custom hostname mode
 -tunnel-token-env string
       environment variable containing a Cloudflare tunnel token
+-cloudflare-hostname string
+      configure this Cloudflare hostname and serve through an existing cloudflared service
+-cloudflare-token-env string
+      environment variable containing the Cloudflare API token for -cloudflare-hostname
+-cloudflare-tunnel-name string
+      Cloudflare tunnel name for -cloudflare-hostname
 -version
       print version information and exit
 ```
@@ -266,7 +235,7 @@ WARNING: This HTTP server has no TLS or authentication. Serve only files you int
 
 Public access may still fail when UPnP succeeds. Common causes are double NAT, carrier-grade NAT, firewall policy, ISP filtering, or a router that accepts a mapping but does not route inbound traffic correctly.
 
-Use `-tunnel cloudflare` when CGNAT blocks inbound connections. The tunnel makes an outbound connection to Cloudflare, so it does not need port forwarding or UPnP.
+Use `-cloudflare-hostname` when CGNAT blocks inbound connections and you want a stable hostname through an existing `cloudflared` service. The tunnel makes an outbound connection to Cloudflare, so it does not need port forwarding or UPnP.
 
 The server uses Go's standard `http.FileServer`. A selected root must be a valid directory. Directory listings use the standard Go behavior. Symlinks inside the served root follow normal filesystem behavior, so do not serve a directory containing symlinks to files you do not intend to share.
 

@@ -6,16 +6,24 @@
 
 This token is for setup automation only. It is the control-plane credential that can create or update Cloudflare resources.
 
-Use it to fetch the runtime connector token from the command line:
+Use it to configure the Cloudflare route and serve in one command:
 
 ```bash
-quickserve cloudflare token \
-  -account-id '<account-id>' \
-  -tunnel-id '<tunnel-id>' \
-  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
+quickserve \
+  -cloudflare-hostname quickserve.example.com \
+  -cloudflare-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
 
-If you do not know the account or tunnel ID yet, discover them first:
+That command:
+
+- Finds the DNS zone from the hostname.
+- Finds the Cloudflare Tunnel named `quickserve`, unless `-cloudflare-tunnel-name` is supplied.
+- Adds or updates the tunnel ingress rule for the hostname.
+- Ensures the tunnel config has a `http_status:404` fallback rule.
+- Creates or updates a proxied CNAME pointing the hostname at `<tunnel-id>.cfargotunnel.com`.
+- Starts quickserve on the configured local port and keeps running until `Ctrl-C`.
+
+If you only want to inspect the account and tunnel IDs, use:
 
 ```bash
 quickserve cloudflare discover \
@@ -33,7 +41,7 @@ tunnel-name=quickserve
 tunnel-status=healthy
 ```
 
-To configure the public hostname route itself, run:
+If you only want to update the Cloudflare route and exit without serving, use:
 
 ```bash
 quickserve cloudflare route \
@@ -51,10 +59,15 @@ That command:
 - Ensures the tunnel config has a `http_status:404` fallback rule.
 - Creates or updates a proxied CNAME pointing the hostname at `<tunnel-id>.cfargotunnel.com`.
 
-`quickserve cloudflare route` is setup-only. It exits after updating Cloudflare. To actually serve files through an existing `cloudflared` service, run quickserve separately on the configured origin port and keep it running:
+`quickserve cloudflare route` is setup-only. It exits after updating Cloudflare. The normal command is `quickserve -cloudflare-hostname ...`, which sets up the route and serves in one process.
+
+To fetch a runtime connector token manually, use:
 
 ```bash
-quickserve -port 8000
+quickserve cloudflare token \
+  -account-id '<account-id>' \
+  -tunnel-id '<tunnel-id>' \
+  -api-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
 ```
 
 Recommended local env var name:
@@ -171,16 +184,18 @@ set -Ux CLOUDFLARE_TOKEN_QUICKSERVE (quickserve cloudflare token \
 
 ## Existing `cloudflared` system service
 
-If `cloudflared` is already installed as a system service for the tunnel, quickserve does not need the runtime connector token during normal serving. Configure the tunnel's public hostname in Cloudflare to point at the local quickserve origin, for example:
+If `cloudflared` is already installed as a system service for the tunnel, quickserve does not need the runtime connector token during normal serving. The simplest command is:
+
+```bash
+quickserve \
+  -cloudflare-hostname quickserve.example.com \
+  -cloudflare-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
+```
+
+This configures the public hostname to point at the local quickserve origin, for example:
 
 ```text
 http://localhost:8000
-```
-
-Then run quickserve without `-tunnel`:
-
-```bash
-quickserve -port 8000
 ```
 
 In this mode, the system service owns the Cloudflare connection. quickserve only runs the local HTTP server.
@@ -189,25 +204,28 @@ Use `-tunnel cloudflare -tunnel-token-env ...` only when you want quickserve to 
 
 ## Setup Pattern
 
-1. Use the setup API token once to create/update:
-   - Tunnel name: `quickserve`
-   - Public hostname: `quickserve.example.com`
-   - Origin service: `http://localhost:8000`
-2. Save the generated connector token as `CLOUDFLARE_TOKEN_QUICKSERVE`.
-3. Keep `.quickserverc` in the project directory:
+1. Store the setup API token in your shell:
+
+```fish
+set -Ux CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP '<api-token>'
+```
+
+2. Run:
+
+```bash
+quickserve \
+  -cloudflare-hostname quickserve.example.com \
+  -cloudflare-token-env CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
+```
+
+3. Optionally save those defaults in `.quickserverc`:
 
 ```text
 dir=.
 port=8000
-tunnel=cloudflare
-tunnel-hostname=quickserve.example.com
-tunnel-token-env=CLOUDFLARE_TOKEN_QUICKSERVE
-```
-
-4. Run:
-
-```bash
-quickserve
+cloudflare-hostname=quickserve.example.com
+cloudflare-token-env=CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP
+cloudflare-tunnel-name=quickserve
 ```
 
 ## Notes

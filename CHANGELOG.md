@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.12
+
+- Add a one-command Cloudflare hostname mode: `quickserve -cloudflare-hostname ... -cloudflare-token-env ...` configures the route and serves locally.
+- Make this mode ignore stale `.quickserverc` managed-tunnel settings so it does not require a connector token.
+
 ## v0.1.11
 
 - Make `quickserve cloudflare route` output explicit that it configures Cloudflare and exits, then prints the `quickserve -port ...` serve command to run next.

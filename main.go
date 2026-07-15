@@ -19,6 +19,24 @@ import (
 
 var cloudflareAPIBaseURL string
 
+type cloudflareRouteOptions struct {
+	Hostname    string
+	Zone        string
+	TunnelName  string
+	Service     string
+	APITokenEnv string
+}
+
+type cloudflareRouteResult struct {
+	AccountID   string
+	TunnelID    string
+	TunnelName  string
+	Hostname    string
+	Service     string
+	DNSRecordID string
+	DNSContent  string
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -50,12 +68,31 @@ func main() {
 	flag.StringVar(&cfg.TunnelHostname, "tunnel-hostname", cfg.TunnelHostname, "Cloudflare hostname to route to this tunnel")
 	flag.StringVar(&cfg.TunnelName, "tunnel-name", cfg.TunnelName, "Cloudflare tunnel name for custom hostname mode")
 	flag.StringVar(&cfg.TunnelTokenEnv, "tunnel-token-env", cfg.TunnelTokenEnv, "environment variable containing a Cloudflare tunnel token")
+	flag.StringVar(&cfg.CloudflareHostname, "cloudflare-hostname", cfg.CloudflareHostname, "configure this Cloudflare hostname and serve through an existing cloudflared service")
+	flag.StringVar(&cfg.CloudflareTokenEnv, "cloudflare-token-env", cfg.CloudflareTokenEnv, "environment variable containing the Cloudflare API token for -cloudflare-hostname")
+	flag.StringVar(&cfg.CloudflareTunnelName, "cloudflare-tunnel-name", cfg.CloudflareTunnelName, "Cloudflare tunnel name for -cloudflare-hostname")
 	flag.BoolVar(&cfg.Version, "version", false, "print version information and exit")
 	flag.Parse()
 
 	if cfg.Version {
 		app.PrintVersion(os.Stdout, app.CurrentBuildInfo())
 		return
+	}
+
+	var route cloudflareRouteOptions
+	var routeEnabled bool
+	cfg, route, routeEnabled, err = prepareCloudflareServeMode(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "quickserve: %v\n", err)
+		os.Exit(1)
+	}
+	if routeEnabled {
+		result, err := configureCloudflareRoute(ctx, route, os.Getenv)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "quickserve: Cloudflare route setup failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stdout, "Cloudflare: https://%s/ -> %s via tunnel %s\n", result.Hostname, result.Service, result.TunnelName)
 	}
 
 	runner := app.NewRunnerWithTunnel(cfg, netinfo.DefaultProvider(), upnp.NewDefaultManager(), tunnel.CloudflareQuick{})
@@ -74,6 +111,32 @@ func main() {
 		fmt.Fprintf(os.Stderr, "quickserve: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func prepareCloudflareServeMode(cfg app.Config) (app.Config, cloudflareRouteOptions, bool, error) {
+	if cfg.CloudflareHostname == "" {
+		return cfg, cloudflareRouteOptions{}, false, nil
+	}
+	if cfg.Port == 0 {
+		return cfg, cloudflareRouteOptions{}, false, fmt.Errorf("-cloudflare-hostname requires a fixed -port")
+	}
+	if cfg.CloudflareTokenEnv == "" {
+		cfg.CloudflareTokenEnv = "CLOUDFLARE_API_TOKEN_QUICKSERVE_SETUP"
+	}
+	if cfg.CloudflareTunnelName == "" {
+		cfg.CloudflareTunnelName = "quickserve"
+	}
+	route := cloudflareRouteOptions{
+		Hostname:    cfg.CloudflareHostname,
+		TunnelName:  cfg.CloudflareTunnelName,
+		Service:     fmt.Sprintf("http://localhost:%d", cfg.Port),
+		APITokenEnv: cfg.CloudflareTokenEnv,
+	}
+	cfg.Tunnel = ""
+	cfg.TunnelHostname = ""
+	cfg.TunnelName = ""
+	cfg.TunnelTokenEnv = ""
+	return cfg, route, true, nil
 }
 
 func runCloudflare(ctx context.Context, args []string, out io.Writer, getenv func(string) string) error {
@@ -193,54 +256,76 @@ func runCloudflareRoute(ctx context.Context, args []string, out io.Writer, geten
 	if hostname == "" {
 		return fmt.Errorf("-hostname is required")
 	}
-	apiToken := getenv(apiTokenEnv)
-	if apiToken == "" {
-		return fmt.Errorf("%s is not set", apiTokenEnv)
-	}
-	client := cloudflare.Client{BaseURL: cloudflareAPIBaseURL}
-	var zone cloudflare.Zone
-	var err error
-	if zoneName != "" {
-		zone, err = client.ZoneByName(ctx, zoneName, apiToken)
-	} else {
-		zone, err = client.FindZoneForHostname(ctx, hostname, apiToken)
-	}
-	if err != nil {
-		return err
-	}
-	tunnels, err := client.Tunnels(ctx, zone.Account.ID, tunnelName, apiToken)
-	if err != nil {
-		return err
-	}
-	if len(tunnels) == 0 {
-		return fmt.Errorf("no tunnel found for name %q", tunnelName)
-	}
-	if len(tunnels) > 1 {
-		return fmt.Errorf("multiple tunnels found for name %q", tunnelName)
-	}
-	tunnel := tunnels[0]
-	ingress, err := client.TunnelIngress(ctx, zone.Account.ID, tunnel.ID, apiToken)
-	if err != nil {
-		return err
-	}
-	ingress = cloudflare.UpsertTunnelIngress(ingress, hostname, service)
-	if err := client.PutTunnelIngress(ctx, zone.Account.ID, tunnel.ID, ingress, apiToken); err != nil {
-		return err
-	}
-	record, err := client.UpsertDNSCNAME(ctx, zone.ID, hostname, tunnel.ID+".cfargotunnel.com", apiToken)
+	result, err := configureCloudflareRoute(ctx, cloudflareRouteOptions{
+		Hostname:    hostname,
+		Zone:        zoneName,
+		TunnelName:  tunnelName,
+		Service:     service,
+		APITokenEnv: apiTokenEnv,
+	}, getenv)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintln(out, "Cloudflare route configured.")
 	fmt.Fprintln(out, "This setup command exits after updating Cloudflare.")
-	fmt.Fprintf(out, "Hostname: https://%s/\n", hostname)
-	fmt.Fprintf(out, "Origin service: %s\n", service)
-	fmt.Fprintf(out, "Tunnel: %s (%s)\n", tunnel.Name, tunnel.ID)
-	fmt.Fprintf(out, "DNS record: %s -> %s\n", hostname, record.Content)
-	fmt.Fprintf(out, "account-id: %s\n", zone.Account.ID)
-	fmt.Fprintf(out, "dns-record-id: %s\n", record.ID)
+	fmt.Fprintf(out, "Hostname: https://%s/\n", result.Hostname)
+	fmt.Fprintf(out, "Origin service: %s\n", result.Service)
+	fmt.Fprintf(out, "Tunnel: %s (%s)\n", result.TunnelName, result.TunnelID)
+	fmt.Fprintf(out, "DNS record: %s -> %s\n", result.Hostname, result.DNSContent)
+	fmt.Fprintf(out, "account-id: %s\n", result.AccountID)
+	fmt.Fprintf(out, "dns-record-id: %s\n", result.DNSRecordID)
 	fmt.Fprintln(out, "Next: run quickserve -port 8000 and keep it running.")
 	return nil
+}
+
+func configureCloudflareRoute(ctx context.Context, opts cloudflareRouteOptions, getenv func(string) string) (cloudflareRouteResult, error) {
+	apiToken := getenv(opts.APITokenEnv)
+	if apiToken == "" {
+		return cloudflareRouteResult{}, fmt.Errorf("%s is not set", opts.APITokenEnv)
+	}
+	client := cloudflare.Client{BaseURL: cloudflareAPIBaseURL}
+	var zone cloudflare.Zone
+	var err error
+	if opts.Zone != "" {
+		zone, err = client.ZoneByName(ctx, opts.Zone, apiToken)
+	} else {
+		zone, err = client.FindZoneForHostname(ctx, opts.Hostname, apiToken)
+	}
+	if err != nil {
+		return cloudflareRouteResult{}, err
+	}
+	tunnels, err := client.Tunnels(ctx, zone.Account.ID, opts.TunnelName, apiToken)
+	if err != nil {
+		return cloudflareRouteResult{}, err
+	}
+	if len(tunnels) == 0 {
+		return cloudflareRouteResult{}, fmt.Errorf("no tunnel found for name %q", opts.TunnelName)
+	}
+	if len(tunnels) > 1 {
+		return cloudflareRouteResult{}, fmt.Errorf("multiple tunnels found for name %q", opts.TunnelName)
+	}
+	tunnel := tunnels[0]
+	ingress, err := client.TunnelIngress(ctx, zone.Account.ID, tunnel.ID, apiToken)
+	if err != nil {
+		return cloudflareRouteResult{}, err
+	}
+	ingress = cloudflare.UpsertTunnelIngress(ingress, opts.Hostname, opts.Service)
+	if err := client.PutTunnelIngress(ctx, zone.Account.ID, tunnel.ID, ingress, apiToken); err != nil {
+		return cloudflareRouteResult{}, err
+	}
+	record, err := client.UpsertDNSCNAME(ctx, zone.ID, opts.Hostname, tunnel.ID+".cfargotunnel.com", apiToken)
+	if err != nil {
+		return cloudflareRouteResult{}, err
+	}
+	return cloudflareRouteResult{
+		AccountID:   zone.Account.ID,
+		TunnelID:    tunnel.ID,
+		TunnelName:  tunnel.Name,
+		Hostname:    opts.Hostname,
+		Service:     opts.Service,
+		DNSRecordID: record.ID,
+		DNSContent:  record.Content,
+	}, nil
 }
 
 func configPathFromArgs(args []string) string {

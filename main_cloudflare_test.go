@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/syscode-labs/quickserve/internal/app"
 )
 
 func TestRunCloudflareTokenPrintsConnectorToken(t *testing.T) {
@@ -193,5 +195,41 @@ func TestRunCloudflareRouteConfiguresIngressAndDNS(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("output missing %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestPrepareCloudflareServeModeDisablesManagedTunnel(t *testing.T) {
+	cfg := app.Config{
+		Port:                 8000,
+		Tunnel:               "cloudflare",
+		TunnelHostname:       "quickserve.syscode.uk",
+		TunnelTokenEnv:       "CLOUDFLARE_TOKEN_QUICKSERVE",
+		CloudflareHostname:   "quickserve.syscode.uk",
+		CloudflareTokenEnv:   "CLOUDFLARE_TOKEN_SYSCODE",
+		CloudflareTunnelName: "quickserve",
+	}
+	got, route, enabled, err := prepareCloudflareServeMode(cfg)
+	if err != nil {
+		t.Fatalf("prepareCloudflareServeMode() error = %v", err)
+	}
+	if !enabled {
+		t.Fatal("cloudflare serve mode not enabled")
+	}
+	if got.Tunnel != "" || got.TunnelHostname != "" || got.TunnelTokenEnv != "" {
+		t.Fatalf("managed tunnel settings were not cleared: %+v", got)
+	}
+	if route.Hostname != "quickserve.syscode.uk" || route.TunnelName != "quickserve" || route.Service != "http://localhost:8000" || route.APITokenEnv != "CLOUDFLARE_TOKEN_SYSCODE" {
+		t.Fatalf("route = %+v", route)
+	}
+}
+
+func TestPrepareCloudflareServeModeRejectsPortZero(t *testing.T) {
+	_, _, _, err := prepareCloudflareServeMode(app.Config{
+		Port:               0,
+		CloudflareHostname: "quickserve.syscode.uk",
+		CloudflareTokenEnv: "CLOUDFLARE_TOKEN_SYSCODE",
+	})
+	if err == nil {
+		t.Fatal("prepareCloudflareServeMode() accepted port 0")
 	}
 }

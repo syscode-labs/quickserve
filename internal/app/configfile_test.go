@@ -19,6 +19,9 @@ upnp-lease=30m
 tunnel=cloudflare
 tunnel-hostname=share.syscode.uk
 tunnel-token-env=CLOUDFLARE_TOKEN_SYSCODE
+cloudflare-hostname=share.example.com
+cloudflare-token-env=CLOUDFLARE_API_TOKEN
+cloudflare-tunnel-name=quickserve
 `), 0o600)
 	if err != nil {
 		t.Fatal(err)
@@ -36,6 +39,9 @@ tunnel-token-env=CLOUDFLARE_TOKEN_SYSCODE
 	}
 	if cfg.Tunnel != "cloudflare" || cfg.TunnelHostname != "share.syscode.uk" || cfg.TunnelTokenEnv != "CLOUDFLARE_TOKEN_SYSCODE" {
 		t.Fatalf("tunnel config not applied: %+v", cfg)
+	}
+	if cfg.CloudflareHostname != "share.example.com" || cfg.CloudflareTokenEnv != "CLOUDFLARE_API_TOKEN" || cfg.CloudflareTunnelName != "quickserve" {
+		t.Fatalf("cloudflare config not applied: %+v", cfg)
 	}
 }
 

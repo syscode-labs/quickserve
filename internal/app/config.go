@@ -7,16 +7,19 @@ import (
 )
 
 type Config struct {
-	Dir            string
-	Port           int
-	UPnP           bool
-	UPnPPort       int
-	UPnPLease      time.Duration
-	Tunnel         string
-	TunnelHostname string
-	TunnelName     string
-	TunnelTokenEnv string
-	Version        bool
+	Dir                  string
+	Port                 int
+	UPnP                 bool
+	UPnPPort             int
+	UPnPLease            time.Duration
+	Tunnel               string
+	TunnelHostname       string
+	TunnelName           string
+	TunnelTokenEnv       string
+	CloudflareHostname   string
+	CloudflareTokenEnv   string
+	CloudflareTunnelName string
+	Version              bool
 }
 
 func (c Config) Validate() error {

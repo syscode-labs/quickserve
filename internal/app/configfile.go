@@ -89,6 +89,12 @@ func applyConfigValue(cfg Config, key, value string) (Config, error) {
 		cfg.TunnelName = value
 	case "tunnel-token-env":
 		cfg.TunnelTokenEnv = value
+	case "cloudflare-hostname":
+		cfg.CloudflareHostname = value
+	case "cloudflare-token-env":
+		cfg.CloudflareTokenEnv = value
+	case "cloudflare-tunnel-name":
+		cfg.CloudflareTunnelName = value
 	default:
 		return cfg, fmt.Errorf("unknown key %q", key)
 	}
