@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.13
+
+- Add colored terminal status output using Charmbracelet Lip Gloss.
+
 ## v0.1.12
 
 - Add a one-command Cloudflare hostname mode: `quickserve -cloudflare-hostname ... -cloudflare-token-env ...` configures the route and serves locally.

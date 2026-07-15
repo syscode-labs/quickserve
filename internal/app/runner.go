@@ -13,6 +13,7 @@ import (
 
 	"github.com/syscode-labs/quickserve/internal/netinfo"
 	"github.com/syscode-labs/quickserve/internal/tunnel"
+	"github.com/syscode-labs/quickserve/internal/ui"
 	"github.com/syscode-labs/quickserve/internal/upnp"
 )
 
@@ -60,6 +61,7 @@ func (r *Runner) Start(ctx context.Context, out io.Writer) (*Started, <-chan err
 }
 
 func (r *Runner) run(ctx context.Context, out io.Writer, started *Started) error {
+	styles := ui.NewStyles(out)
 	if err := r.cfg.Validate(); err != nil {
 		return err
 	}
@@ -95,7 +97,7 @@ func (r *Runner) run(ctx context.Context, out io.Writer, started *Started) error
 	lan, _ := r.net.LANIPv4(ctx)
 	public, publicErr := r.net.PublicIPv4(ctx)
 	if publicErr != nil && !errors.Is(publicErr, netinfo.ErrNonGlobalAddress) {
-		fmt.Fprintf(out, "Public address: unavailable (%v)\n", publicErr)
+		fmt.Fprintf(out, "%s\n", styles.LabelValue("Public address", fmt.Sprintf("unavailable (%v)", publicErr)))
 	}
 
 	var mapping *upnp.Mapping
@@ -124,8 +126,8 @@ func (r *Runner) run(ctx context.Context, out io.Writer, started *Started) error
 		if netinfo.IsGlobalIPv4(mapping.ExternalIP) {
 			public = mapping.ExternalIP
 		}
-		fmt.Fprintln(out, "WARNING: UPnP mapping enabled. Files are exposed publicly without TLS or authentication.")
-		fmt.Fprintln(out, "         Double NAT, CGNAT, firewall policy, or ISP filtering can still block inbound access.")
+		fmt.Fprintln(out, styles.Warning("WARNING: UPnP mapping enabled. Files are exposed publicly without TLS or authentication."))
+		fmt.Fprintln(out, styles.Muted("         Double NAT, CGNAT, firewall policy, or ISP filtering can still block inbound access."))
 	}
 	if r.cfg.Tunnel == "cloudflare" {
 		if r.tunneler == nil {
@@ -153,27 +155,27 @@ func (r *Runner) run(ctx context.Context, out io.Writer, started *Started) error
 				cleanupCancel()
 			}
 		}()
-		fmt.Fprintln(out, "WARNING: Cloudflare Tunnel enabled. Files are exposed through a public HTTPS tunnel.")
-		fmt.Fprintln(out, "         Anyone with the tunnel URL can reach this server unless Cloudflare Access is configured.")
+		fmt.Fprintln(out, styles.Warning("WARNING: Cloudflare Tunnel enabled. Files are exposed through a public HTTPS tunnel."))
+		fmt.Fprintln(out, styles.Muted("         Anyone with the tunnel URL can reach this server unless Cloudflare Access is configured."))
 	}
 
-	fmt.Fprintf(out, "Serving: %s\n", root)
-	fmt.Fprintf(out, "Local:   http://localhost:%d/\n", port)
+	fmt.Fprintln(out, styles.LabelValue("Serving", root))
+	fmt.Fprintln(out, styles.URLValue("Local", fmt.Sprintf("http://localhost:%d/", port)))
 	if lan != "" {
-		fmt.Fprintf(out, "LAN:     http://%s:%d/\n", lan, port)
+		fmt.Fprintln(out, styles.URLValue("LAN", fmt.Sprintf("http://%s:%d/", lan, port)))
 	}
 	if netinfo.IsGlobalIPv4(public) {
 		publicPort := port
 		if mapping != nil {
 			publicPort = int(mapping.ExternalPort)
 		}
-		fmt.Fprintf(out, "Public:  http://%s:%d/\n", public, publicPort)
+		fmt.Fprintln(out, styles.URLValue("Public", fmt.Sprintf("http://%s:%d/", public, publicPort)))
 	}
 	if tunnelSession != nil {
-		fmt.Fprintf(out, "Tunnel:  %s\n", tunnelSession.URL())
+		fmt.Fprintln(out, styles.URLValue("Tunnel", tunnelSession.URL()))
 	}
-	fmt.Fprintln(out, "WARNING: This HTTP server has no TLS or authentication. Serve only files you intend to share.")
-	fmt.Fprintln(out, "         It binds to all interfaces intentionally for LAN/public serving.")
+	fmt.Fprintln(out, styles.Warning("WARNING: This HTTP server has no TLS or authentication. Serve only files you intend to share."))
+	fmt.Fprintln(out, styles.Muted("         It binds to all interfaces intentionally for LAN/public serving."))
 
 	serveErr := make(chan error, 1)
 	close(started.Ready)

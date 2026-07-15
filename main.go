@@ -14,6 +14,7 @@ import (
 	"github.com/syscode-labs/quickserve/internal/cloudflare"
 	"github.com/syscode-labs/quickserve/internal/netinfo"
 	"github.com/syscode-labs/quickserve/internal/tunnel"
+	"github.com/syscode-labs/quickserve/internal/ui"
 	"github.com/syscode-labs/quickserve/internal/upnp"
 )
 
@@ -92,7 +93,13 @@ func main() {
 			fmt.Fprintf(os.Stderr, "quickserve: Cloudflare route setup failed: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Fprintf(os.Stdout, "Cloudflare: https://%s/ -> %s via tunnel %s\n", result.Hostname, result.Service, result.TunnelName)
+		styles := ui.NewStyles(os.Stdout)
+		fmt.Fprintf(os.Stdout, "%s %s -> %s via tunnel %s\n",
+			styles.Success("Cloudflare:"),
+			styles.URL("https://"+result.Hostname+"/"),
+			result.Service,
+			result.TunnelName,
+		)
 	}
 
 	runner := app.NewRunnerWithTunnel(cfg, netinfo.DefaultProvider(), upnp.NewDefaultManager(), tunnel.CloudflareQuick{})
@@ -238,6 +245,7 @@ func runCloudflareToken(ctx context.Context, args []string, out io.Writer, geten
 }
 
 func runCloudflareRoute(ctx context.Context, args []string, out io.Writer, getenv func(string) string) error {
+	styles := ui.NewStyles(out)
 	fs := flag.NewFlagSet("quickserve cloudflare route", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	var hostname string
@@ -266,15 +274,15 @@ func runCloudflareRoute(ctx context.Context, args []string, out io.Writer, geten
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(out, "Cloudflare route configured.")
-	fmt.Fprintln(out, "This setup command exits after updating Cloudflare.")
-	fmt.Fprintf(out, "Hostname: https://%s/\n", result.Hostname)
-	fmt.Fprintf(out, "Origin service: %s\n", result.Service)
-	fmt.Fprintf(out, "Tunnel: %s (%s)\n", result.TunnelName, result.TunnelID)
-	fmt.Fprintf(out, "DNS record: %s -> %s\n", result.Hostname, result.DNSContent)
-	fmt.Fprintf(out, "account-id: %s\n", result.AccountID)
-	fmt.Fprintf(out, "dns-record-id: %s\n", result.DNSRecordID)
-	fmt.Fprintln(out, "Next: run quickserve -port 8000 and keep it running.")
+	fmt.Fprintln(out, styles.Success("Cloudflare route configured."))
+	fmt.Fprintln(out, styles.Muted("This setup command exits after updating Cloudflare."))
+	fmt.Fprintln(out, styles.URLValue("Hostname", "https://"+result.Hostname+"/"))
+	fmt.Fprintln(out, styles.LabelValue("Origin service", result.Service))
+	fmt.Fprintln(out, styles.LabelValue("Tunnel", fmt.Sprintf("%s (%s)", result.TunnelName, result.TunnelID)))
+	fmt.Fprintln(out, styles.LabelValue("DNS record", fmt.Sprintf("%s -> %s", result.Hostname, result.DNSContent)))
+	fmt.Fprintln(out, styles.LabelValue("account-id", result.AccountID))
+	fmt.Fprintln(out, styles.LabelValue("dns-record-id", result.DNSRecordID))
+	fmt.Fprintln(out, styles.LabelValue("Next", "run quickserve -port 8000 and keep it running."))
 	return nil
 }
 
